@@ -14,10 +14,10 @@ Date: **November 2025**
 
 #### 1. Input
 
-- $\mathbf{X} \in \mathbb{R}^{B \times T \times d}$
-    - $B$: Batch size
-    - $T$: Sequence length
-    - $d$: Embedding dimension $(d = d_{\text{model}})$
+- $\mathbf{X} \in \mathbb{R}^{B \times T \times d}$ 
+- $B$: Batch size 
+- $T$: Sequence length 
+- $d$: Embedding dimension ($(d = d_{\text{model}})$)
 
 #### 2. Positional Encoding (PE)
 
@@ -45,7 +45,7 @@ $$
 A = \frac{\mathbf{Q} \mathbf{K}^\top}{\sqrt{d_k}} \qquad (B \times h \times T \times T)
 $$
 $$
-\hat{A} = \operatorname{softmax}(A)
+\hat{A} ​​= \operatorname{softmax}(A)
 $$
 $$
 \text{head}_i = \hat{A}_i \mathbf{V}_i
@@ -58,11 +58,11 @@ $$
 
 #### 4. Add & LayerNorm + Feed-Forward Network (FFN)
 
-- Residual + LayerNorm:
+-Residual + LayerNorm:
 $$
 \mathbf{Z} = \operatorname{LayerNorm}(\mathbf{X} + \operatorname{MHA}(\mathbf{X}))
 $$
-- Feedforward: (with ReLU)
+-feedforward: (with ReLU)
 $$
 \operatorname{FFN}(x) = \max(0, x W_1 + b_1) W_2 + b_2
 $$
@@ -79,11 +79,11 @@ $$
 Let $\delta Y = \frac{\partial \mathcal{L}}{\partial (\text{post-}W^O)}$:
 $$
 \delta V = \hat{A}^\top \delta Y, \quad
-\delta \hat{A} = \delta Y V^\top
+\delta \hat{A} ​​= \delta Y V^\top
 $$
 - Softmax derivative:
 $$
-\delta A = \hat{A} \odot (\delta \hat{A} - \hat{A} (\delta \hat{A} \cdot \mathbf{1}))
+\delta A = \hat{A} ​​\odot (\delta \hat{A} ​​- \hat{A} ​​(\delta \hat{A} ​​\cdot \mathbf{1}))
 $$
 $$
 \delta Q = \delta A K / \sqrt{d_k}, \quad
@@ -130,7 +130,7 @@ $$
 
 #### Adam Optimizer
 
-- First and second moment estimates:
+-First and second moment estimates:
 $$
 m_t = \beta_1 m_{t-1} + (1-\beta_1) g_t
 $$
@@ -151,13 +151,13 @@ $$
 
 ## 🏆 Training Result
 
-| Metric                | Value                                  |
+| Metric | Value |
 |-----------------------|----------------------------------------|
-| Architecture          | 2 layers, $d_{\text{model}}=64$, 4 heads, $d_{\text{ff}}=256$ |
-| Task                  | Input reconstruction (Auto-encoding)   |
-| Epochs                | 500                                    |
-| Final MSE Loss        | 0.0043                                 |
-| Result                | Near-perfect reconstruction (per-token embedding error $\approx 0.02$) |
+| Architecture | 2 layers, $d_{\text{model}}=64$, 4 heads, $d_{\text{ff}}=256$ |
+| Task | Input reconstruction (Auto-encoding) |
+| Epochs | 500 |
+| Final MSE Loss | 0.0043 |
+| Result | Near-perfect reconstruction (per-token embedding error $\approx 0.02$) |
 
 ---
 
@@ -166,4 +166,5 @@ $$
 MIT
 
 ---
-For questions or to see the code: [GitHub Repo](https://github.com/uesina15-max/Transformer-algorithm-application-numpy-)
+For questions or to see the code: [GitHub Repo](https://github.com/uesina15-max/Transformer-algorithm-application-numpy-)  
+Compiles well in the GitHub repository
