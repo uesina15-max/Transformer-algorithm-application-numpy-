@@ -1,121 +1,128 @@
 \documentclass[11pt,a4paper]{article}
 \usepackage{amsmath, amssymb, amsthm}
-\usepackage{kotex}
 \usepackage{geometry}
-\geometry{a4paper, margin=1in}
 \usepackage{enumitem}
-\usepackage{color}
+\usepackage{xcolor}
+\usepackage{hyperref}
 
-\title{\textbf{Pure NumPy Transformer:\\ From Code to Mathematics \\ \large Complete Transformer Formula Summary, Implemented in Pure NumPy}}
-\author{uesina15-max \& Grok}
+\geometry{margin=1in}
+\title{\textbf{Pure NumPy Transformer from Scratch}\\
+\Large Complete Mathematical Derivation (Code ↔ Math 100\% Match)}
+\author{uesina15-max}
 \date{November 2025}
 
 \begin{document}
 \maketitle
 
 \begin{center}
-\textit{``Successfully trained with only NumPy and handwritten differentiation, without PyTorch or Autograd Transformer''}
+\textit{A fully trainable Transformer encoder implemented and trained using only NumPy\\
+—no PyTorch, no JAX, no autograd, full manual backward pass.}
 \end{center}
 
 \vspace{1cm}
 
-\section{Forward Pass: Overall Transformer Flow}
+\section{Forward Pass}
 
-Input sequence $X \in \mathbb{R}^{B \times T \times d_{\text{model}}}$
+Let the input be $\mathbf{X} \in \mathbb{R}^{B \times T \times d_{\text{model}}}$.
 
-\subsection{1. Positional Encoding (Sinusoidal)}
+\subsection{Positional Encoding (Sinusoidal)}
 \begin{align}
-PE(\text{pos}, 2i) &= \sin\left(\frac{\text{pos}}{10000^{2i/d}}\right) \\
-PE(\text{pos}, 2i+1) &= \cos\left(\frac{\text{pos}}{10000^{2i/d}}\right)
+PE(pos,2i)    &= \sin(pos / 10000^{2i/d}) \\
+PE(pos,2i+1)  &= \cos(pos / 10000^{2i/d})
 \end{align}
-Input: $\quad \mathbf{X} \leftarrow \text{Embedding}(tokens) + PE$
+$\mathbf{X} \leftarrow \text{Embedding}(tokens) + PE$
 
-\subsection{2. Multi-Head Self-Attention}
+\subsection{Multi-Head Self-Attention}
 \begin{align}
 \mathbf{Q} &= \mathbf{X} W^Q + b^Q, \quad
 \mathbf{K} = \mathbf{X} W^K + b^K, \quad
-\mathbf{V} = \mathbf{X} W^V + b^V \\[6pt]
-A_{ij} &= \frac{(Q_i \cdot K_j)}{\sqrt{d_k}} \\[6pt]
-\hat{A} ​​&= \text{softmax}(A) \quad \text{(row-wise)} \\[6pt]
-\text{head}_h &= \hat{A} ​​V_h \\[6pt]
-\text{MultiHead}(\mathbf{X}) &= \text{Concat}(\text{head}_1, \dots, \text{head}_h) W^O + b^O
+\mathbf{V} = \mathbf{X} W^V + b^V \quad (W^\bullet \in \mathbb{R}^{d \times d}) \\[6pt]
+A &= \frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}} \in \mathbb{R}^{B \times h \times T \times T} \\[6pt]
+\hat{A} &= \text{softmax}(A,\ \text{axis}=-1) \\[6pt]
+\text{head}_i &= \hat{A}_i \, \mathbf{V}_i \\[6pt]
+\text{MultiHead}(\mathbf{X}) &= \text{Concat}(\text{head}_1,\dots,\text{head}_h) W^O + b^O
 \end{align}
 
-\subsection{3. Residual + LayerNorm}
+\subsection{Add \& LayerNorm (Pre-LN style)}
 \begin{align}
-\mathbf{Z} &= \text{LayerNorm}(\mathbf{X} + \text{MultiHead}(\mathbf{X})) \\
-\mathbf{O} &= \text{LayerNorm}(\mathbf{Z} + \text{FFN}(\mathbf{Z}))
+\mathbf{Z} &= \text{LayerNorm}\bigl(\mathbf{X} + \text{MultiHead}(\mathbf{X})\bigr) \\
+\mathbf{O} &= \text{LayerNorm}\bigl(\mathbf{Z} + \text{FFN}(\mathbf{Z})\bigr)
 \end{align}
 
-\subsection{4. Feed-Forward Network}
+\subsection{Feed-Forward Network}
 \begin{align}
-\text{FFN}(x) = \max(0, x W_1 + b_1) W_2 + b_2
+\text{FFN}(x) = \max(0,\ x W_1 + b_1) W_2 + b_2
 \end{align}
 
-\section{Backward Pass: Core Differential Formulas (100% consistent with code)}
+\section{Backward Pass – Exact Derivatives Used in the Code}
 
-\subsection{Multi-Head Attention Backward (Scaled Dot-Product)}
+\subsection{Multi-Head Attention Backward (exact NumPy implementation)}
 \begin{align}
-\delta Y &= \nabla_H \mathcal{L} \quad (\text{from } W^O) \\[6pt]
-\delta V &= \hat{A}^\top \delta Y, \quad
-\delta \hat{A} ​​= \delta Y V^\top \\[8pt]
-\delta A &= \hat{A} ​​\odot (\delta \hat{A} ​​- (\hat{A} ​​\cdot \delta \hat{A}) \mathbf{1})
-&& \text{softmax Jacobian} \\[8pt]
-\delta Q &= \delta A \, K / \sqrt{d_k}, \quad
+\delta Y &\triangleq \frac{\partial\mathcal{L}}{\partial (\text{after }W^O)} \\
+\delta V &= \hat{A}^\top \delta Y,\qquad
+\delta \hat{A} = \delta Y \, V^\top \\[6pt]
+\delta A &= \hat{A} \odot \bigl(\delta \hat{A} - (\hat{A} \cdot \delta \hat{A})\mathbf{1}\bigr)
+&& \text{(softmax Jacobian)} \\[8pt]
+\delta Q &= \delta A \, K / \sqrt{d_k},\qquad
 \delta K = \delta A^\top \, Q / \sqrt{d_k} \\[6pt]
-\nabla_{W^Q} \mathcal{L} &= X^\top \delta Q, \quad
-\nabla_{W^O} \mathcal{L} &= \text{Concat}^\top \delta Y
+\frac{\partial\mathcal{L}}{\partial W^Q} &= \mathbf{X}^\top \delta Q,\quad
+\frac{\partial\mathcal{L}}{\partial W^O} = \text{Concat}^\top \delta Y
 \end{align}
 
-\subsection{LayerNorm Correct Backward (1:1 with code)}
+\subsection{Layer Normalization – Exact Backward (matches the fixed code)}
 \begin{align}
-\mu &= \frac{1}{d}\sum x_j, \quad
-\sigma^2 = \frac{1}{d}\sum (x_j - \mu)^2 \\[6pt]
-\hat{x} &= \frac{x - \mu}{\sqrt{\sigma^2 + \epsilon}}, \quad y = \gamma \hat{x} + \beta
+\mu &= \frac{1}{d}\sum_j x_j,&
+\sigma^2 &= \frac{1}{d}\sum_j (x_j-\mu)^2 \\
+\hat{x} &= \frac{x-\mu}{\sqrt{\sigma^2+\epsilon}},&
+y &= \gamma \hat{x} + \beta
 \end{align}
 \begin{align}
-g_{\hat{x}} &= \frac{\partial\mathcal{L}}{\partial y} \cdot \gamma \\[6pt]
-g_{\sigma^2} &= \sum (g_{\hat{x}} \odot (x - \mu)) \cdot \left(-\frac{1}{2}(\sigma^2 + \epsilon)^{-3/2}\right) \\[6pt]
-g_\mu &= - \frac{g_{\hat{x}}}{\sqrt{\sigma^2 + \epsilon}} + g_{\sigma^2} \cdot \frac{\sum -2(x - \mu)}{d} \\[6pt]
-\frac{\partial\mathcal{L}}{\partial x} &=
-\frac{g_{\hat{x}}}{\sqrt{\sigma^2 + \epsilon}} +
-g_{\sigma^2} \cdot \frac{2(x - \mu)}{d} +
-\frac{g_\mu}{d}
+g_{\hat{x}} &= \frac{\partial\mathcal{L}}{\partial y} \odot \gamma \\[4pt]
+g_{\sigma^2} &= \sum_j \bigl(g_{\hat{x},j} (x_j-\mu)\bigr) \cdot \left(-\frac{1}{2}(\sigma^2+\epsilon)^{-3/2}\right) \\[4pt]
+g_\mu &= -\sum_j \frac{g_{\hat{x},j}}{\sqrt{\sigma^2+\epsilon}} \;+\; g_{\sigma^2} \cdot \frac{\sum_j -2(x_j-\mu)}{d} \\[6pt]
+\frac{\partial\mathcal{L}}{\partial x_i} &= 
+\frac{g_{\hat{x},i}}{\sqrt{\sigma^2+\epsilon}} 
++ g_{\sigma^2} \cdot \frac{2(x_i-\mu)}{d}
++ \frac{g_\mu}{d}
 \end{align}
 
-\subsection{Residual Connection Gradient Flow (most common mistake)}
-\[
-\delta Z_{\text{add}} = \delta Z_{\text{norm}} \quad \rightarrow \quad
+\subsection{Residual Connections (the most common bug)}
+The gradient from LayerNorm flows equally to both branches:
+$$
+\delta X_{\text{add}} = \delta Z_{\text{norm}} \quad \longrightarrow \quad
 \begin{cases}
-\text{to FFN input} \\
-\text{to previous block output (skip)}
+\text{to attention branch} \\
+\text{ skip connection (input } \mathbf{X})
 \end{cases}
-\]
+$$
 
-\section{Loss \& Final Gradient}
-Reconstruction loss (auto-encoding task)
+\section{Loss Function \& Top-Level Gradient}
+Reconstruction (auto-encoding) task:
 \begin{align}
-\mathcal{L} &= \frac{1}{B T d} \| \hat{Y} - X \|^2_2 \\[6pt]
-\frac{\partial\mathcal{L}}{\partial \hat{Y}} &= \frac{2}{B T d} (\hat{Y} - X)
+\mathcal{L} &= \frac{1}{B T d_{\text{model}}} \|\hat{Y} - X\|_2^2 \\[6pt]
+\frac{\partial\mathcal{L}}{\partial \hat{Y}} &= \frac{2}{B T d_{\text{model}}} (\hat{Y} - X)
 \end{align}
 
-\section{Adam Optimizer (exactly the same as code)}
+\section{Adam Optimizer (exactly as implemented)}
 \begin{align}
 m_t &= \beta_1 m_{t-1} + (1-\beta_1) g_t \\
 v_t &= \beta_2 v_{t-1} + (1-\beta_2) g_t^2 \\
-\hat{m}_t &= \frac{m_t}{1 - \beta_1^t}, \quad \hat{v}_t = \frac{v_t}{1 - \beta_2^t} \\
+\hat{m}_t &= \frac{m_t}{1-\beta_1^t},\quad \hat{v}_t = \frac{v_t}{1-\beta_2^t} \\
 \theta_t &= \theta_{t-1} - \eta \frac{\hat{m}_t}{\sqrt{\hat{v}_t} + \epsilon}
 \end{align}
 
-\section{Experimental Results (Actual Run)}
-\begin{itemize}
-\item $d_{\text{model}}=64$, $h=4$, $d_{\text{ff}}=256$, 2 layers
-\item MSE loss after 500 epochs: $\mathbf{0.0043}$ (almost perfect recovery)
-\item \texttt{np.linalg.norm(y[0,0] - target[0,0])} $\approx$ 0.02
+\section{Empirical Results (actual run)}
+\begin{itemize}[leftmargin=*]
+\item Architecture: 2 layers, $d_{\text{model}}=64$, 4 heads, $d_{\text{ff}}=256$
+\item After 500 epochs → MSE loss = $\mathbf{0.0043}$
+\item Per-token embedding error ≈ 0.02 (near-perfect reconstruction)
 \end{itemize}
 
 \begin{center}
-\textcolor{red}{\Large ★ This document is 100% identical to the NumPy code and formulas. ★}
+\textcolor{red}{\LARGE This document is in 100\% correspondence with the NumPy source code.}
 \end{center}
+
+\vspace{1cm}
+\centerline{\href{https://github.com/uesina15-max/Transformer-algorithm-application-numpy-}{github.com/uesina15-max/Transformer-algorithm-application-numpy-}}
 
 \end{document}
