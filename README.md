@@ -98,6 +98,28 @@ $$
 | **Linear grad_W** | `grad_W = x.T @ grad_out` (batch axis ignored) | Shape error or gradient 100x larger | `x.transpose(0,2,1).reshape(...) @ ...` |
 
 ### The most critical derivation of LayerNorm differentiation (actually copied from my notes)
+The exact LayerNorm differentiation derivation we actually used (for educational purposes)
+
+$ y = \gamma \hat{x} + \beta $, $\hat{x} = \frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}$
+$\frac{\partial y}{\partial \hat{x}} = \gamma \quad\Rightarrow\quad \frac{\partial\mathcal{L}}{\partial \hat{x}} = \frac{\partial\mathcal{L}}{\partial y}\gamma$
+$\frac{\partial \hat{x}_i}{\partial \sigma^2} = -\frac{1}{2}(\sigma^2+\epsilon)^{-3/2}(x_i-\mu)$
+$\frac{\partial \hat{x}_i}{\partial \mu} = -\frac{1}{\sqrt{\sigma^2+\epsilon}}$
+Combining using the chain rule → Final formula below (exactly matches the code)
+
+$$\boxed{
+\frac{\partial\mathcal{L}}{\partial x_i} =
+\underbrace{\frac{g_{\hat{x},i}}{\sqrt{\sigma^2+\epsilon}}}_{\text{scale term}}
+\;+\;
+\underbrace{\frac{2g_{\sigma^2}(x_i-\mu)}{d}}_{\text{variance term}}
+\;+\;
+\underbrace{\frac{g_\mu}{d}}_{\text{mean term}}
+}$$
+What if you didn't know this formula? → Transformers cannot be created with NumPy.
+
+This repository is not just "working code".
+It is the only place on the internet that shows both the broken formulas everyone copies and the correct derivations that actually work.
+
+
 
 1. Start: $ y = \gamma \hat{x} + \beta ,\quad \hat{x} = \frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}$
 2. $\frac{\partial\mathcal{L}}{\partial \hat{x}} = \frac{\partial\mathcal{L}}{\partial y} \gamma$
