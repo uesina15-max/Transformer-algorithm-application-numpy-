@@ -11,7 +11,94 @@
 
 **Author:** [@uesina15-max](https://github.com/uesina15-max)  
 **Date:** November 2025
+\section*{Transformer Formulas}
 
+\textbf{Input Sequence}
+
+Given an input sequence:
+\[
+x \in \mathbb{R}^{n \times d}
+\]
+where $n$ is the sequence length and $d$ is the embedding dimension.
+
+\subsection*{1. Linear Transformations}
+
+Compute the query ($Q$), key ($K$), and value ($V$) matrices:
+\[
+Q = x W_Q, \quad K = x W_K, \quad V = x W_V
+\]
+where $W_Q, W_K, W_V \in \mathbb{R}^{d \times d_k}$ are learnable weight matrices and $d_k$ is the dimensionality of queries and keys.
+
+\subsection*{2. Scaled Dot-Product Attention}
+
+Calculate attention scores with scaled dot-product:
+\[
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\left( \frac{Q K^\top}{\sqrt{d_k}} \right) V
+\]
+
+\subsection*{3. Multi-Head Attention}
+
+Apply $h$ parallel attention heads and concatenate their outputs:
+\[
+\mathrm{MultiHead}(Q, K, V) = \operatorname{Concat}\left(\text{head}_1, \dots, \text{head}_h\right) W_O
+\]
+where
+\[
+\text{head}_i = \mathrm{Attention}(Q W_i^Q, K W_i^K, V W_i^V)
+\]
+and $W_i^Q, W_i^K, W_i^V \in \mathbb{R}^{d \times d_k}$; $W_O \in \mathbb{R}^{hd_v \times d}$ is a learnable output projection.
+
+\subsection*{4. Positional Encoding}
+
+To incorporate positional information (since Transformers are permutation-invariant), apply sinusoidal positional encoding:
+\[
+\begin{aligned}
+PE(\text{pos}, 2i) &= \sin\left( \frac{\text{pos}}{10000^{2i/d}} \right) \\
+PE(\text{pos}, 2i+1) &= \cos\left( \frac{\text{pos}}{10000^{2i/d}} \right)
+\end{aligned}
+\]
+where $\text{pos}$ is the sequence position, and $i$ is the dimension index.
+
+\subsection*{5. Position-wise Feed-Forward Network (FFN)}
+
+Each position passes through a two-layer FFN:
+\[
+\mathrm{FFN}(x) = \max(0, x W_1 + b_1) W_2 + b_2
+\]
+where $W_1 \in \mathbb{R}^{d \times d_{ff}}$, $W_2 \in \mathbb{R}^{d_{ff} \times d}$, and $b_1, b_2$ are biases.
+
+\section*{Backpropagation Formulas}
+
+\subsection*{1. Loss Function}
+
+Define the loss (for example, Mean Squared Error):
+\[
+L = \frac{1}{N}\sum_{i=1}^{N}(y_i - \hat{y}_i)^2
+\]
+where $y_i$ is the true label and $\hat{y}_i$ is the predicted output.
+
+\subsection*{2. Gradients at Output Layer}
+
+The error at the output layer:
+\[
+\delta^{(L)} = \nabla_a L \odot \sigma'(z^{(L)})
+\]
+where $\sigma'$ is the derivative of the activation function, and $z^{(L)}$ is the pre-activation at the output layer.
+
+\subsection*{3. Gradients at Hidden Layers}
+
+The error at hidden layer $l$:
+\[
+\delta^{(l)} = \left( \delta^{(l+1)} W^{(l+1)\top} \right) \odot \sigma'(z^{(l)})
+\]
+
+\subsection*{4. Weight Updates}
+
+Update the layer weights using gradient descent:
+\[
+W^{(l)} \leftarrow W^{(l)} - \eta\, \frac{\partial L}{\partial W^{(l)}}
+\]
+where $\eta$ is the learning rate.
 ---
 
 ## Architecture & Forward Pass
@@ -87,7 +174,29 @@ $$
 **Near-perfect reconstruction achieved with pure NumPy.**
 
 ---
+## Educational Bonus: The Painful Journey of Manual Backprop
+(Why most from-scratch implementations fail — and how we fixed them)
 
+| Component | Common Buggy Formula (90% of GitHub repos) | Why it explodes | Correct Derivation (what our code actually uses) |
+|----------------------|---------------------------------------------------------------------|------------------------------------------------------------------|--------------------------------------------------|
+| **LayerNorm dx** | `dx = grad_out * gamma / std` (ignoring mean/var) | Loss does not drop from 50 | 3-term formula (see below) |
+| **Softmax gradient** | `grad_scores = grad_attn * attn_weights` (invalid Jacobian) | Attention is completely broken | `attn * (grad - sum(grad·attn))` |
+| **Residual gradient**| `grad_input = grad_from_norm` (skip connection missing) | Gradient vanishing → no training | `grad_input = grad_from_norm + grad_from_branch` |
+| **Linear grad_W** | `grad_W = x.T @ grad_out` (batch axis ignored) | Shape error or gradient 100x larger | `x.transpose(0,2,1).reshape(...) @ ...` |
+
+### The most critical derivation of LayerNorm differentiation (actually copied from my notes)
+
+1. Start: $ y = \gamma \hat{x} + \beta ,\quad \hat{x} = \frac{x-\mu}{\sqrt{\sigma^2+\epsilon}}$
+2. $\frac{\partial\mathcal{L}}{\partial \hat{x}} = \frac{\partial\mathcal{L}}{\partial y} \gamma$
+3. $\frac{\partial \hat{x}_i}{\partial \sigma^2} = -\frac{1}{2}(\sigma^2+\epsilon)^{-3/2} (x_i-\mu)$
+4. $\frac{\partial \hat{x}_i}{\partial \mu} = -\frac{1}{\sqrt{\sigma^2+\epsilon}}$
+5. Combining with the chain rule → The exact ternary formula we included in our code is born.
+
+```python
+# Actual code line by line
+grad_x = (grad_x_hat / std) \
++ (grad_var * 2 * (x - mean) / N) \
++ (grad_mean / N)
 ## Run It Now
 
 ```bash
